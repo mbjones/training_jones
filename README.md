@@ -9,3 +9,5 @@ Training repository for the Arctic Data Center training course
 
 - Step 1
 - Step 2
+- Step 3 (Jeanette)
+- Step 4
