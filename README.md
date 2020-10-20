@@ -1,6 +1,6 @@
 # training_jones
 Training repository for the Arctic Data Center training course
 
-- Data (mbjones was here)
+- Data (mbjones and metamattj reconciled)
 - Metadata
 - Science
