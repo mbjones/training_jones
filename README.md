@@ -1,7 +1,7 @@
 # training_jones
 Training repository for the Arctic Data Center training course
 
-- Data
+- Data (mbjones was the data holder)
 - Metadata
 - Science
 
