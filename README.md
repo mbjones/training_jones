@@ -1,7 +1,7 @@
 # training_jones
 Training repository for the Arctic Data Center training course
 
-- Data
+- Data (jc did the quality control)
 - Metadata
 - Science
 
