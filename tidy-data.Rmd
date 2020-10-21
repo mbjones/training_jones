@@ -1,0 +1,84 @@
+---
+title: "tidy-data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loadlibs, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(readr)
+```
+
+# Load data
+
+Original data from the KNB Data Repository.
+
+```{r}
+catch_original <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+```
+
+Next, select the 
+```{r}
+catch_data <- catch_original %>% 
+  select(Region, Year, Chinook, Sockeye, Coho, Pink, Chum)
+catch_data
+```
+
+```{r}
+summary(catch_data)
+```
+
+```{r}
+catch_clean <- catch_data %>% 
+  mutate(Chinook = as.numeric(Chinook))
+
+i <- which(is.na(catch_clean$Chinook))
+catch_data[i,]
+
+catch_clean <- catch_data %>% 
+  mutate(Chinook = ifelse(Chinook == 'I', 1, Chinook)) %>% 
+  mutate(Chinook = as.numeric(Chinook))
+summary(catch_clean)
+```
+
+Pivot the dataset to long format
+
+```{r}
+catch_long <- catch_clean %>% 
+  pivot_longer(cols = -c(Region, Year), names_to="species", values_to="catch")
+catch_long
+
+catch_wide <- catch_long %>% 
+  pivot_wider(names_from=species, values_from=catch)
+```
+
+Rename the catch column
+
+```{r}
+catch_long <- catch_long %>% 
+  rename(catch_thousands = catch) %>% 
+  mutate(catch = catch_thousands*1000) %>% 
+  select(-catch_thousands)
+catch_long
+```
+
+```{r}
+mean_by_region <- catch_long %>% 
+  group_by(Region) %>% 
+  summarise(catch_mean = mean(catch)) %>% 
+  arrange(desc(catch_mean))
+mean_by_region
+```
+# Filtering!
+
+```{r}
+SSE_catch <- catch_long %>% 
+  filter(Region=="SSE")
+SSE_catch
+```
+
+
