@@ -7,6 +7,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(roxygen2)
+library(ggplot2)
+```
+
 # Example without using functions
 
 ```{r}
@@ -37,5 +42,60 @@ celsius <- fahr_to_celsius(airtemps)
 celsius
 ```
 
+# Your turn
 
-# Document our function
+```{r}
+#' Converts celsius to Fahrenheit
+#'
+#' This function takes scalar or vector values in degrees Celsius
+#' and returns values in degrees Fahrenheit
+#'
+#' @param celsius the input temperature in degrees Celsius
+celsius_to_fahr <- function(celsius) {
+  fahr <- celsius*9/5 + 32
+  return(fahr)
+}
+
+result <- celsius_to_fahr(celsius)
+result == airtemps
+```
+
+
+# Some plotting functions
+
+```{r}
+convert_temps <- function(fahr) {
+  celsius <- (fahr-32)*5/9
+  kelvin <- celsius + 273.15
+  return(list(fahr=fahr, celsius=celsius, kelvin=kelvin))
+}
+
+temps_df <- data.frame(convert_temps(seq(-100,100,10)))
+```
+
+Now plot it.
+
+```{r}
+custom_theme <- function(base_size = 9) {
+    ggplot2::theme(
+      axis.ticks       = ggplot2::element_blank(),
+      text             = ggplot2::element_text(family = 'Helvetica', color = 'gray30', size = base_size),
+      plot.title       = ggplot2::element_text(size = ggplot2::rel(1.25), hjust = 0.5, face = 'bold'),
+      panel.background = ggplot2::element_blank(),
+      legend.position  = 'right',
+      panel.border     = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_line(colour = 'grey90', size = .25),
+      legend.key       = ggplot2::element_rect(colour = NA, fill = NA),
+      axis.line        = ggplot2::element_blank()
+      )
+}
+
+ggplot(temps_df, mapping=aes(x=fahr, y=celsius, color=kelvin)) +
+    geom_point() +
+    scale_color_gradient(low = "blue", high = "red") +
+    custom_theme(10)
+
+```
+
+
