@@ -1,0 +1,70 @@
+## Reproducible Data Access
+
+```{r load-libs}
+library(readr)
+library(pins)
+library(contentid)
+```
+
+## Web URLs for data access
+
+Quick link: https://bit.ly/iep-dataset
+
+From [this IEP dataset on DataONE](https://search.dataone.org/view/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fmetadata%2Feml%2Fedi%2F233%2F2):
+
+```{r, contentid-load-web}
+delta_sites_url <- "https://cn.dataone.org/cn/v2/resolve/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fdata%2Feml%2Fedi%2F233%2F2%2F6a82451e84be1fe82c9821f30ffc2d7d"
+```
+
+Read the data from the web directly:
+
+```{r}
+delta_sites <- readr::read_csv(delta_sites_url, show_col_types = FALSE)
+head(delta_sites)
+```
+
+Alternatively, use the `pins` package to cache it locally:
+
+```{r, contentid-pins}
+#| eval: true
+
+delta_sites_pin <- pins::pin(delta_sites_url)
+delta_sites <- readr::read_csv(delta_sites_pin, show_col_types = FALSE)
+head(delta_sites)
+```
+
+## Storing a content identifier from a URI
+
+```{r, contentid_store}
+#| eval: true
+delta_catch_url <- "https://cn.dataone.org/cn/v2/resolve/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fdata%2Feml%2Fedi%2F233%2F2%2F015e494911cf35c90089ced5a3127334"
+
+delta_catch_id <- store(delta_catch_url)
+delta_catch_id
+```
+
+## Loading data from a content identifier
+
+```{r, contentid-resolve}
+#| warning: false
+
+delta_catch_file <- contentid::resolve(delta_catch_id, store = TRUE)
+delta_catch <- readr::read_csv(delta_catch_file, show_col_types=FALSE)
+head(delta_catch)
+```
+
+## Storing and using local data identifiers
+
+```{r, register_local}
+
+# Store a local file
+vostok_co2 <- system.file("extdata", "vostok.icecore.co2", package = "contentid")
+vostok_id <- store(vostok_co2)
+vostok <- contentid::resolve(vostok_id, store=TRUE)
+co2 <- read.table(vostok, col.names = c("depth", "age_ice", "age_air", "co2"), skip = 21)
+head(co2)
+```
+```{r}
+contentid::sources(vostok_id)
+```
+
