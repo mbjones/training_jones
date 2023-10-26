@@ -5,6 +5,8 @@ format: html
 
 # Learning Spatial Features
 
+Short description.
+
 ```{r}
 library(readr)
 library(sf)
