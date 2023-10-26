@@ -1,0 +1,258 @@
+---
+title: "sf-lesson"
+format: html
+---
+
+# Learning Spatial Features
+
+```{r}
+library(readr)
+library(sf)
+library(ggplot2)
+library(leaflet)
+library(scales)
+library(ggmap)
+library(dplyr)
+```
+
+```{r}
+#| eval: false
+knb_url <- 'https://dev.nceas.ucsb.edu/knb/d1/mn/v2/object/urn%3Auuid%3Aaceaecb2-1ce0-4d41-a839-d3607d32bb58'
+download.file(url = knb_url, destfile = 'demo_data.zip')
+unzip('demo_data.zip', exdir = 'data')
+file.remove('demo_data.zip')
+```
+
+```{r}
+ak_regions <- read_sf("data/ak_regions_simp.shp")
+plot(ak_regions)
+```
+
+```{r}
+class(ak_regions)
+```
+
+```{r}
+head(ak_regions)
+glimpse(ak_regions)
+```
+
+```{r}
+st_crs(ak_regions)
+```
+
+```{r}
+ak_regions_3338 <- ak_regions %>% 
+  st_transform(crs = 3338)
+
+st_crs(ak_regions_3338)
+```
+
+```{r}
+plot(ak_regions_3338)
+```
+
+```{r}
+colnames(ak_regions_3338)
+```
+
+```{r}
+ak_regions_3338 %>% 
+  select(region)
+```
+
+
+```{r}
+unique(ak_regions_3338$region)
+```
+
+```{r}
+ak_regions_3338 %>% 
+  filter(region == "Southeast")
+```
+
+```{r}
+pop <- read_csv("data/alaska_population.csv")
+head(pop)
+```
+```{r}
+pop_4326 <- st_as_sf(pop,
+                     coords = c('lng', 'lat'),
+                     crs = 4326,
+                     remove = F)
+
+head(pop_4326)
+```
+
+```{r}
+pop_joined <- st_join(pop_4326, ak_regions_3338, join = st_within)
+```
+
+```{r}
+pop_3338 <- st_transform(pop_4326, crs = 3338)
+pop_joined <- st_join(pop_3338, ak_regions_3338, join = st_within)
+head(pop_joined)
+```
+
+```{r}
+pop_region <- pop_joined %>% 
+  as.data.frame() %>% 
+  group_by(region) %>% 
+  summarize(total_pop = sum(population))
+head(pop_region)
+```
+
+```{r}
+pop_region_3338 <- left_join(ak_regions_3338, pop_region, by = "region")
+
+# plot to check it
+plot(pop_region_3338["total_pop"])
+```
+
+```{r}
+pop_mgmt_338 <- pop_region_3338 %>%
+    group_by(mgmt_area) %>%
+    summarize(total_pop = sum(total_pop))
+
+plot(pop_mgmt_338["total_pop"])
+```
+
+```{r}
+pop_mgmt_3338 <- pop_region_3338 %>%
+    group_by(mgmt_area) %>%
+    summarize(total_pop = sum(total_pop), do_union = F)
+
+plot(pop_mgmt_3338["total_pop"])
+```
+
+```{r}
+write_sf(pop_region_3338, "data/ak_regions_population.shp")
+write_sf(pop_region_3338, "data/ak_regions_population.gpkg")
+```
+
+## GGPLOT
+
+```{r}
+ggplot(pop_region_3338) +
+  geom_sf(aes(fill=total_pop)) +
+  labs(fill = "Total Population") +
+  scale_fill_continuous(low = "khaki",
+                        high="firebrick", 
+                        labels = comma) +
+  theme_bw()
+```
+
+```{r}
+rivers_3338 <- read_sf("data/ak_rivers_simp.shp")
+st_crs(rivers_3338)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = pop_region_3338, aes(fill = total_pop)) +
+  geom_sf(data = pop_3338, size = 0.5) +
+  geom_sf(data = rivers_3338, aes(linewidth = StrOrder)) +
+  scale_linewidth(range = c(0.05, 0.5), guid = "none") +
+  labs(title = "Total Population by Alaska Region",
+       fill = "Total Population") +
+  scale_fill_continuous(low = "khaki",
+                        high = 'firebrick',
+                        labels = comma) +
+  theme_bw()
+```
+
+## GGMAP
+
+```{r}
+pop_3857 <- pop_3338 %>%
+    st_transform(crs = 3857)
+ggmap_bbox_to_3857 <- function(map) {
+    if (!inherits(map, "ggmap"))
+        stop("map must be a ggmap object")
+    # Extract the bounding box (in lat/lon) from the ggmap to a numeric vector,
+    # and set the names to what sf::st_bbox expects:
+    map_bbox <- setNames(unlist(attr(map, "bb")),
+                         c("ymin", "xmin", "ymax", "xmax"))
+    
+    # Coonvert the bbox to an sf polygon, transform it to 3857,
+    # and convert back to a bbox (convoluted, but it works)
+    bbox_3857 <-
+        st_bbox(st_transform(st_as_sfc(st_bbox(map_bbox, crs = 4326)), 3857))
+    
+    # Overwrite the bbox of the ggmap object with the transformed coordinates
+    attr(map, "bb")$ll.lat <- bbox_3857["ymin"]
+    attr(map, "bb")$ll.lon <- bbox_3857["xmin"]
+    attr(map, "bb")$ur.lat <- bbox_3857["ymax"]
+    attr(map, "bb")$ur.lon <- bbox_3857["xmax"]
+    map
+}
+bbox <- c(-170, 52,-130, 64) # this is roughly southern Alaska
+ak_map <- get_stamenmap(bbox, zoom = 4) # get base map
+ak_map_3857 <- ggmap_bbox_to_3857(ak_map) # fix the bbox to be in EPSG:3857
+ggmap(ak_map_3857) +
+    geom_sf(data = pop_3857,
+            aes(color = population),
+            inherit.aes = F) +
+    scale_color_continuous(low = "khaki",
+                           high =  "firebrick",
+                           labels = comma)
+
+```
+
+## Leaflet
+
+```{r}
+epsg3338 <- leaflet::leafletCRS(
+    crsClass = "L.Proj.CRS",
+    code = "EPSG:3338",
+    proj4def =  "+proj=aea +lat_1=55 +lat_2=65 +lat_0=50 +lon_0=-154 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+    resolutions = 2 ^ (16:7)
+)
+```
+
+```{r}
+st_crs(pop_region_3338)
+```
+
+```{r}
+pop_region_4326 <- st_transform(pop_region_3338, crs = 4326)
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>% 
+  addPolygons(data = pop_region_4326, 
+              fillColor = "gray",
+              weight = 1)
+m
+```
+
+
+```{r}
+pal <- colorNumeric(palette = "Reds", domain = pop_region_4326$total_pop)
+
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>% 
+  addPolygons(
+    data = pop_region_4326,
+    fillColor = ~ pal(total_pop),
+    weight = 1,
+    color = "black",
+    fillOpacity = 1,
+    label = ~ region 
+  ) %>% 
+  addCircleMarkers(
+    data = pop_4326,
+    lat = ~ lat,
+    lng = ~ lng,
+    radius = ~ log(population / 500),
+    fillColor = "gray",
+    fillOpacity = "1",
+    weight = 0.25,
+    color = "black",
+    label = ~ paste0(pop_4326$city, ", population ", comma(pop_4326$population))
+  ) %>% 
+  addLegend(
+    position = "bottomleft",
+    pal = pal,
+    values = range(pop_region_4326$total_pop),
+    title = "Total Population"
+  )
+m
+```
+
